@@ -1,0 +1,20 @@
+[
+{
+  "directory": "/home/mastard/WebProjects/Broko/build",
+  "command": "/usr/bin/clang++ -I/home/mastard/WebProjects/Broko  -std=c++26 -g -std=gnu++26 -o CMakeFiles/BoostAsioExample.dir/main.cpp.o -c /home/mastard/WebProjects/Broko/main.cpp",
+  "file": "/home/mastard/WebProjects/Broko/main.cpp",
+  "output": "/home/mastard/WebProjects/Broko/build/CMakeFiles/BoostAsioExample.dir/main.cpp.o"
+},
+{
+  "directory": "/home/mastard/WebProjects/Broko/build",
+  "command": "/usr/bin/clang++ -I/home/mastard/WebProjects/Broko  -std=c++26 -g -std=gnu++26 -o CMakeFiles/BoostAsioExample.dir/server.cpp.o -c /home/mastard/WebProjects/Broko/server.cpp",
+  "file": "/home/mastard/WebProjects/Broko/server.cpp",
+  "output": "/home/mastard/WebProjects/Broko/build/CMakeFiles/BoostAsioExample.dir/server.cpp.o"
+},
+{
+  "directory": "/home/mastard/WebProjects/Broko/build",
+  "command": "/usr/bin/clang++ -I/home/mastard/WebProjects/Broko  -std=c++26 -g -std=gnu++26 -o CMakeFiles/BoostAsioExample.dir/client.cpp.o -c /home/mastard/WebProjects/Broko/client.cpp",
+  "file": "/home/mastard/WebProjects/Broko/client.cpp",
+  "output": "/home/mastard/WebProjects/Broko/build/CMakeFiles/BoostAsioExample.dir/client.cpp.o"
+}
+]

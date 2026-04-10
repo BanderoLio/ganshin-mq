@@ -1,0 +1,66 @@
+services:
+  broko:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "5672:5672"
+    volumes:
+      - broko-data:/var/lib/broko
+    healthcheck:
+      test: ["CMD-SHELL", "ss -ltn | grep -q 5672"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  publisher:
+    build:
+      context: demo
+      dockerfile: Dockerfile
+    command: node publisher/index.js
+    environment:
+      - BROKER_URL=amqp://guest:guest@broko:5672/
+      - INTERVAL_MS=2000
+    depends_on:
+      broko:
+        condition: service_healthy
+
+  subscriber-all:
+    build:
+      context: demo
+      dockerfile: Dockerfile
+    command: node subscriber/index.js
+    environment:
+      - BROKER_URL=amqp://guest:guest@broko:5672/
+      - QUEUE_NAME=all-orders
+      - BINDING_KEY=order.#
+    depends_on:
+      broko:
+        condition: service_healthy
+
+  subscriber-high:
+    build:
+      context: demo
+      dockerfile: Dockerfile
+    command: node subscriber/index.js
+    environment:
+      - BROKER_URL=amqp://guest:guest@broko:5672/
+      - QUEUE_NAME=high-priority-orders
+      - BINDING_KEY=order.high
+    depends_on:
+      broko:
+        condition: service_healthy
+
+  rpc-server:
+    build:
+      context: demo
+      dockerfile: Dockerfile
+    command: node rpc-server/index.js
+    environment:
+      - BROKER_URL=amqp://guest:guest@broko:5672/
+    depends_on:
+      broko:
+        condition: service_healthy
+
+volumes:
+  broko-data:

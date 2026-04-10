@@ -1,0 +1,7 @@
+{
+    "name": "broko-demo",
+    "private": true,
+    "dependencies": {
+        "amqplib": "^0.10.0"
+    }
+}
