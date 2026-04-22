@@ -1,0 +1,9 @@
+{
+  "runId": "rabbit-1024b-1000r-run-2026-04-22T11-54-43-406Z",
+  "broker": "rabbit",
+  "sent": 9502,
+  "errors": 0,
+  "startedAt": "2026-04-22T11:54:45.575Z",
+  "updatedAt": "2026-04-22T11:55:23.491Z",
+  "isFinal": false
+}

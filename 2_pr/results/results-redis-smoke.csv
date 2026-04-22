@@ -1,0 +1,2 @@
+runId,broker,payloadBytes,rate,durationSec,sent,processed,errors,lost,throughput,latencyAvgMs,latencyP95Ms,latencyMaxMs,backlog,cpuPercent,memoryMiB,startedAt,finishedAt
+redis-1024b-1000r-run-2026-04-22T11-58-01-168Z,redis,1024,1000,30,27268,27268,0,0,908.93,756.88,1344.00,1717.00,,0.27,4.31,2026-04-22T11:58:01.172Z,2026-04-22T11:58:39.877Z

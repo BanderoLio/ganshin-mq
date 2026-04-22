@@ -1,0 +1,22 @@
+[
+  {
+    "runId": "redis-1024b-1000r-run-2026-04-22T11-58-01-168Z",
+    "broker": "redis",
+    "payloadBytes": 1024,
+    "rate": 1000,
+    "durationSec": 30,
+    "sent": 27268,
+    "processed": 27268,
+    "errors": 0,
+    "lost": 0,
+    "throughput": 908.9333333333333,
+    "latencyAvgMs": 756.8798958486137,
+    "latencyP95Ms": 1344,
+    "latencyMaxMs": 1717,
+    "backlog": null,
+    "cpuPercent": 0.27,
+    "memoryMiB": 4.312,
+    "startedAt": "2026-04-22T11:58:01.172Z",
+    "finishedAt": "2026-04-22T11:58:39.877Z"
+  }
+]

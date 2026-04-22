@@ -1,0 +1,22 @@
+[
+  {
+    "runId": "rabbit-1024b-1000r-run-2026-04-22T11-54-43-406Z",
+    "broker": "rabbit",
+    "payloadBytes": 1024,
+    "rate": 1000,
+    "durationSec": 30,
+    "sent": 9502,
+    "processed": 1583,
+    "errors": 0,
+    "lost": 7919,
+    "throughput": 52.766666666666666,
+    "latencyAvgMs": 2366.6651926721415,
+    "latencyP95Ms": 8346,
+    "latencyMaxMs": 14072,
+    "backlog": 0,
+    "cpuPercent": 1.14,
+    "memoryMiB": 151,
+    "startedAt": "2026-04-22T11:54:43.407Z",
+    "finishedAt": "2026-04-22T11:55:23.563Z"
+  }
+]
