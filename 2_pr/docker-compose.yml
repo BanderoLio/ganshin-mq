@@ -1,0 +1,29 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: benchmark-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    cpus: 1.0
+    mem_limit: 512m
+
+  redis:
+    image: redis:7
+    container_name: benchmark-redis
+    ports:
+      - "6380:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    cpus: 1.0
+    mem_limit: 512m
+
+  k6:
+    image: grafana/k6:latest
+    profiles: ["tools"]
+    volumes:
+      - ./k6:/scripts:ro
+      - ./results:/results
+    entrypoint: ["k6"]

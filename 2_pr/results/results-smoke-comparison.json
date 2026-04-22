@@ -1,0 +1,42 @@
+[
+    {
+        "runId":  "rabbit-1024b-1000r-run-2026-04-22T11-54-43-406Z",
+        "broker":  "rabbit",
+        "payloadBytes":  1024,
+        "rate":  1000,
+        "durationSec":  30,
+        "sent":  9502,
+        "processed":  1583,
+        "errors":  0,
+        "lost":  7919,
+        "throughput":  52.766666666666666,
+        "latencyAvgMs":  2366.6651926721415,
+        "latencyP95Ms":  8346,
+        "latencyMaxMs":  14072,
+        "backlog":  0,
+        "cpuPercent":  1.14,
+        "memoryMiB":  151,
+        "startedAt":  "2026-04-22T11:54:43.407Z",
+        "finishedAt":  "2026-04-22T11:55:23.563Z"
+    },
+    {
+        "runId":  "redis-1024b-1000r-run-2026-04-22T11-58-01-168Z",
+        "broker":  "redis",
+        "payloadBytes":  1024,
+        "rate":  1000,
+        "durationSec":  30,
+        "sent":  27268,
+        "processed":  27268,
+        "errors":  0,
+        "lost":  0,
+        "throughput":  908.9333333333333,
+        "latencyAvgMs":  756.8798958486137,
+        "latencyP95Ms":  1344,
+        "latencyMaxMs":  1717,
+        "backlog":  null,
+        "cpuPercent":  0.27,
+        "memoryMiB":  4.312,
+        "startedAt":  "2026-04-22T11:58:01.172Z",
+        "finishedAt":  "2026-04-22T11:58:39.877Z"
+    }
+]

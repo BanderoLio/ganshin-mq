@@ -1,0 +1,14 @@
+{
+  "runId": "redis-1024b-10000r-run-2026-04-22T12-24-39-187Z",
+  "broker": "redis",
+  "processed": 26719,
+  "errors": 0,
+  "latencyAvgMs": 1040.083798046334,
+  "latencyP95Ms": 1430,
+  "latencyMaxMs": 12933,
+  "backlog": null,
+  "startedAt": "2026-04-22T12:24:40.971Z",
+  "updatedAt": "2026-04-22T12:25:17.244Z",
+  "expectedDurationSec": 30,
+  "isFinal": false
+}

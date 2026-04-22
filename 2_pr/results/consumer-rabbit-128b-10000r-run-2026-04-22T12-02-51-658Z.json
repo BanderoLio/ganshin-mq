@@ -1,0 +1,14 @@
+{
+  "runId": "rabbit-128b-10000r-run-2026-04-22T12-02-51-658Z",
+  "broker": "rabbit",
+  "processed": 2355,
+  "errors": 0,
+  "latencyAvgMs": 1969.0046709129513,
+  "latencyP95Ms": 7933,
+  "latencyMaxMs": 23262,
+  "backlog": 0,
+  "startedAt": "2026-04-22T12:02:53.591Z",
+  "updatedAt": "2026-04-22T12:03:30.929Z",
+  "expectedDurationSec": 30,
+  "isFinal": false
+}

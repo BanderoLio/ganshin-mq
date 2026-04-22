@@ -1,0 +1,9 @@
+{
+  "runId": "redis-1024b-15000r-run-2026-04-22T12-25-20-202Z",
+  "broker": "redis",
+  "sent": 27114,
+  "errors": 0,
+  "startedAt": "2026-04-22T12:25:22.309Z",
+  "updatedAt": "2026-04-22T12:25:59.145Z",
+  "isFinal": false
+}
