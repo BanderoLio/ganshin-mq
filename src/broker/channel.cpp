@@ -19,6 +19,7 @@ void Channel::removeAllConsumers() {
         if (q) q->removeConsumer(tag);
     }
     consumers_.clear();
+    requeueUnackedMessages();
 }
 
 void Channel::sendMethodFrame(uint16_t classId, uint16_t methodId,
@@ -532,6 +533,16 @@ void Channel::persistAck(const UnackedMessage& unacked) {
     auto q = vhost_->findQueue(unacked.queue_name);
     if (q && q->durable && unacked.message->wal_id != 0)
         vhost_->store()->storeAck(unacked.queue_name, unacked.message->wal_id);
+}
+
+void Channel::requeueUnackedMessages() {
+    for (auto& [deliveryTag, unacked] : unackedMessages_) {
+        if (unacked.consumer)
+            unacked.consumer->in_flight.fetch_sub(1, std::memory_order_relaxed);
+        auto q = vhost_->findQueue(unacked.queue_name);
+        if (q) q->reject(deliveryTag, true, unacked.message);
+    }
+    unackedMessages_.clear();
 }
 
 void Channel::handleBasicAck(Buffer& buf) {

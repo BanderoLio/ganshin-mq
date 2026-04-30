@@ -153,6 +153,44 @@ async function main() {
         await ch2.close();
     });
 
+    // --- Test 8: Unacked requeue on channel close ---
+    await test('Unacked messages are requeued when channel closes', async () => {
+        const ch1 = await conn.createChannel();
+        const ch2 = await conn.createChannel();
+        await ch1.assertQueue('requeue-on-close-test', { durable: false });
+        await ch1.purgeQueue('requeue-on-close-test');
+        await ch1.prefetch(1);
+
+        ch1.sendToQueue('requeue-on-close-test', Buffer.from('must-return'));
+
+        await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('no delivery to first consumer')), 2000);
+            ch1.consume('requeue-on-close-test', async (msg) => {
+                clearTimeout(timer);
+                if (!msg) return reject(new Error('null message'));
+                try {
+                    await ch1.close(); // close without ACK: broker must requeue
+                    resolve();
+                } catch (err) {
+                    reject(err);
+                }
+            }, { noAck: false }).catch(reject);
+        });
+
+        await new Promise(r => setTimeout(r, 150));
+
+        const redelivered = await ch2.get('requeue-on-close-test');
+        if (!redelivered) throw new Error('message was not requeued');
+        if (redelivered.content.toString() !== 'must-return')
+            throw new Error('content mismatch after requeue');
+        if (!redelivered.fields.redelivered)
+            throw new Error('expected redelivered flag after requeue');
+
+        ch2.ack(redelivered);
+        await ch2.deleteQueue('requeue-on-close-test');
+        await ch2.close();
+    });
+
     await conn.close();
 
     console.log(`\nResults: ${passed} passed, ${failed} failed`);

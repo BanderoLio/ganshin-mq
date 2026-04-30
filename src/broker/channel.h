@@ -110,6 +110,7 @@ private:
                         const std::string& queueName, MessagePtr original);
 
     void persistAck(const UnackedMessage& unacked);
+    void requeueUnackedMessages();
 };
 
 } // namespace broko::broker
