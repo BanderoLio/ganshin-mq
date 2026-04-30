@@ -1,0 +1,19 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cacheuser
+      POSTGRES_PASSWORD: cachepass
+      POSTGRES_DB: cachedb
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cacheuser -d cachedb"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
