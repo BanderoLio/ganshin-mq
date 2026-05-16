@@ -2,6 +2,7 @@
     "name": "broko-demo",
     "private": true,
     "dependencies": {
-        "amqplib": "^0.10.0"
+        "amqplib": "^0.10.0",
+        "broko-client": "file:./broko-client"
     }
 }

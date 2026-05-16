@@ -7,6 +7,8 @@ services:
       - "5672:5672"
     volumes:
       - broko-data:/var/lib/broko
+    environment:
+      - BROKO_USERS_FILE=/var/lib/broko/broker.users
     healthcheck:
       test: ["CMD-SHELL", "ss -ltn | grep -q 5672"]
       interval: 2s
@@ -15,8 +17,8 @@ services:
 
   publisher:
     build:
-      context: demo
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/demo/Dockerfile
     command: node publisher/index.js
     environment:
       - BROKER_URL=amqp://guest:guest@broko:5672/
@@ -27,8 +29,8 @@ services:
 
   subscriber-all:
     build:
-      context: demo
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/demo/Dockerfile
     command: node subscriber/index.js
     environment:
       - BROKER_URL=amqp://guest:guest@broko:5672/
@@ -40,8 +42,8 @@ services:
 
   subscriber-high:
     build:
-      context: demo
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/demo/Dockerfile
     command: node subscriber/index.js
     environment:
       - BROKER_URL=amqp://guest:guest@broko:5672/
@@ -53,11 +55,69 @@ services:
 
   rpc-server:
     build:
-      context: demo
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/demo/Dockerfile
     command: node rpc-server/index.js
     environment:
       - BROKER_URL=amqp://guest:guest@broko:5672/
+    depends_on:
+      broko:
+        condition: service_healthy
+
+  # RPC-клиент использует самописный SDK (broko-client) — закрывает требование
+  # этапа 3 ТЗ о наличии собственного SDK и одновременно замыкает RPC-демо.
+  rpc-client:
+    build:
+      context: ..
+      dockerfile: docker/demo/Dockerfile
+    command: node rpc-client/index.js
+    environment:
+      - BROKER_URL=amqp://guest:guest@broko:5672/
+      - INTERVAL_MS=3000
+    depends_on:
+      broko:
+        condition: service_healthy
+
+  # Параллельный publisher на самописном SDK — демонстрирует, что брокер
+  # совместим как с эталонным amqplib, так и с собственным клиентом.
+  publisher-sdk:
+    build:
+      context: ..
+      dockerfile: docker/demo/Dockerfile
+    command: node publisher-sdk/index.js
+    environment:
+      - BROKER_URL=amqp://guest:guest@broko:5672/
+      - INTERVAL_MS=3000
+    depends_on:
+      broko:
+        condition: service_healthy
+
+  subscriber-sdk:
+    build:
+      context: ..
+      dockerfile: docker/demo/Dockerfile
+    command: node subscriber-sdk/index.js
+    environment:
+      - BROKER_URL=amqp://guest:guest@broko:5672/
+      - QUEUE_NAME=sdk-order-processor
+      - BINDING_KEY=order.#
+    depends_on:
+      broko:
+        condition: service_healthy
+
+  webui:
+    build:
+      context: ..
+      dockerfile: docker/webui/Dockerfile
+    ports:
+      - "15672:15672"
+    volumes:
+      - broko-data:/var/lib/broko:ro
+    environment:
+      - PORT=15672
+      - STATS_FILE=/var/lib/broko/stats.json
+      - WEBUI_USER=admin
+      - WEBUI_PASS=admin
     depends_on:
       broko:
         condition: service_healthy

@@ -3,6 +3,7 @@
 #include "../amqp/frame.h"
 #include "../amqp/methods.h"
 #include "../amqp/types.h"
+#include "auth.h"
 #include "channel.h"
 #include "vhost.h"
 #include <boost/asio.hpp>
@@ -25,11 +26,16 @@ public:
     AmqpConnection(boost::asio::ip::tcp::socket socket,
                    VirtualHostPtr defaultVhost,
                    uint32_t id,
-                   CloseCallback onClose);
+                   CloseCallback onClose,
+                   UserStore* userStore = nullptr);
 
     void start();
     void close();
     uint32_t id() const { return id_; }
+    const std::string& authUser() const { return authUser_; }
+    std::string peerAddress() const { return peerAddress_; }
+    int64_t connectedAtMs() const { return connectedAtMs_; }
+    size_t channelCount() const { return channels_.size(); }
 
     void postToStrand(std::function<void()> fn);
 
@@ -70,6 +76,9 @@ private:
     bool receivedData_ = false;
 
     std::string authUser_;
+    std::string peerAddress_;
+    int64_t connectedAtMs_ = 0;
+    UserStore* userStore_ = nullptr;
 
     void readProtocolHeader();
     void readFrameHeader();

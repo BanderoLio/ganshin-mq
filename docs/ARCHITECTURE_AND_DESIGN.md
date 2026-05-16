@@ -156,3 +156,38 @@ graph TD
 | README: цели и требования | [README.md](../README.md) — блок «Документация и цели»; полное ТЗ — [MessageBrokerRequirements.md](../MessageBrokerRequirements.md) |
 
 После этого набора документов разработка может вестись без дополнительных вопросов по базовой архитектуре; детали протокола уточняются по спецификации AMQP 0-9-1 и коду модулей.
+
+---
+
+## 7. Дополнения после реализации этапов 2–4
+
+К базовой архитектуре добавлены следующие модули и компоненты:
+
+### 7.1 Аутентификация ([src/broker/auth.h](../src/broker/auth.h))
+
+Класс `UserStore` загружает текстовый файл `broker.users` формата `user:password` и валидирует SASL-credentials в `AmqpConnection::handleStartOk` ([src/broker/connection.cpp](../src/broker/connection.cpp)). При несовпадении — `Connection.Close(403 ACCESS_REFUSED)`. При отсутствии файла — fallback на режим «только guest:guest» для совместимости с дефолтами amqplib.
+
+### 7.2 Stats writer ([src/broker/stats_writer.h](../src/broker/stats_writer.h))
+
+Header-only компонент. Через `boost::asio::steady_timer` каждые 1.5с делает снапшот состояния (соединения, очереди, exchanges) и атомарно (`write to .tmp + rename`) записывает в `<data_dir>/stats.json`. Источники данных — `VirtualHost::snapshotQueues()`, `VirtualHost::snapshotExchanges()`, `AmqpServer::snapshotConnections()`.
+
+### 7.3 Web UI sidecar ([docker/webui/](../docker/webui/))
+
+Отдельный Node.js контейнер на Express, не зависит от AMQP. Читает `stats.json` через shared volume (`broko-data:ro`), отдаёт `/api/{overview,queues,exchanges,connections,stats}` + статическую панель управления. Защищён HTTP Basic Auth.
+
+Развязка: брокер ничего не знает про HTTP, UI ничего не знает про AMQP. Граница — JSON-файл.
+
+### 7.4 Самописный SDK ([sdk/broko-client-js/](../sdk/broko-client-js/))
+
+Минимальный AMQP 0-9-1 клиент на Node.js, реализующий wire-протокол с нуля поверх `net.Socket`. Не зависит от amqplib. Используется в демо-сервисах `rpc-client`, `publisher-sdk`, `subscriber-sdk`.
+
+Архитектурно повторяет структуру C++ кода:
+- `lib/types.js` ↔ `src/amqp/types.h` (Codec, field tables)
+- `lib/frame.js` ↔ `src/amqp/frame.h` (frame encode/decode)
+- `lib/methods.js` ↔ `src/amqp/methods.h` (constants)
+- `lib/connection.js` ↔ `src/broker/connection.cpp` (handshake, heartbeat, multiplexing)
+- `lib/channel.js` ↔ `src/broker/channel.cpp` (Exchange/Queue/Basic methods)
+
+### 7.5 Демо-стенд и runner
+
+`make demo` через `scripts/run-demo.sh` поднимает `docker compose` со всеми сервисами, ждёт healthcheck брокера, печатает URL Web UI. Сценарий показа — в [DEMO.md](../DEMO.md).

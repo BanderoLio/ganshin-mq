@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Broko — Management UI</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <span class="logo">B</span>
+            <div>
+                <h1>Broko</h1>
+                <p class="tag">AMQP 0-9-1 Message Broker</p>
+            </div>
+        </div>
+        <div class="status">
+            <span id="status-dot" class="dot"></span>
+            <span id="status-text">connecting…</span>
+            <span id="uptime"></span>
+        </div>
+    </header>
+
+    <nav>
+        <button class="tab active" data-view="overview">Overview</button>
+        <button class="tab" data-view="queues">Queues</button>
+        <button class="tab" data-view="exchanges">Exchanges</button>
+        <button class="tab" data-view="connections">Connections</button>
+        <span class="auto-refresh">↻ авто-обновление 2с</span>
+    </nav>
+
+    <main>
+        <section id="view-overview" class="view active">
+            <div class="kpi-grid">
+                <div class="kpi"><span class="kpi-label">Соединения</span><span class="kpi-value" id="kpi-conn">—</span></div>
+                <div class="kpi"><span class="kpi-label">Очереди</span><span class="kpi-value" id="kpi-queues">—</span></div>
+                <div class="kpi"><span class="kpi-label">Exchanges</span><span class="kpi-value" id="kpi-exchanges">—</span></div>
+                <div class="kpi"><span class="kpi-label">Сообщений в очередях</span><span class="kpi-value" id="kpi-messages">—</span></div>
+            </div>
+
+            <h2>Top очереди по глубине</h2>
+            <table id="top-queues">
+                <thead><tr><th>Очередь</th><th class="num">Messages</th><th class="num">Consumers</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <section id="view-queues" class="view">
+            <h2>Очереди</h2>
+            <table id="tbl-queues">
+                <thead><tr>
+                    <th>Имя</th>
+                    <th>Durable</th>
+                    <th>Exclusive</th>
+                    <th>Auto-delete</th>
+                    <th class="num">Messages</th>
+                    <th class="num">Consumers</th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <section id="view-exchanges" class="view">
+            <h2>Exchanges</h2>
+            <table id="tbl-exchanges">
+                <thead><tr>
+                    <th>Имя</th>
+                    <th>Тип</th>
+                    <th>Durable</th>
+                    <th>Auto-delete</th>
+                    <th class="num">Bindings</th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <section id="view-connections" class="view">
+            <h2>Активные соединения</h2>
+            <table id="tbl-connections">
+                <thead><tr>
+                    <th>ID</th>
+                    <th>Пользователь</th>
+                    <th>Peer</th>
+                    <th class="num">Channels</th>
+                    <th>Connected</th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>
+        </section>
+    </main>
+
+    <footer>
+        Broko Management UI &middot; читает <code>stats.json</code> от брокера (обновление каждые 1.5с)
+    </footer>
+
+    <script src="/app.js"></script>
+</body>
+</html>

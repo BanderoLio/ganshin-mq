@@ -1,0 +1,9 @@
+{
+    "name": "broko-client-js",
+    "version": "0.1.0",
+    "description": "Minimal AMQP 0-9-1 client for Broko broker (no amqplib dependency)",
+    "main": "index.js",
+    "license": "MIT",
+    "private": true,
+    "dependencies": {}
+}

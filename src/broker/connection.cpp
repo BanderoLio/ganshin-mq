@@ -1,4 +1,5 @@
 #include "connection.h"
+#include <chrono>
 #include <format>
 #include <iostream>
 
@@ -8,13 +9,21 @@ using namespace amqp;
 using boost::asio::ip::tcp;
 
 AmqpConnection::AmqpConnection(tcp::socket socket, VirtualHostPtr defaultVhost,
-                                uint32_t id, CloseCallback onClose)
+                                uint32_t id, CloseCallback onClose,
+                                UserStore* userStore)
     : id_(id), socket_(std::move(socket)),
       strand_(boost::asio::make_strand(socket_.get_executor())),
       heartbeatTimer_(strand_),
       heartbeatCheckTimer_(strand_),
       vhost_(std::move(defaultVhost)),
-      onClose_(std::move(onClose)) {}
+      onClose_(std::move(onClose)),
+      userStore_(userStore) {
+    connectedAtMs_ = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    boost::system::error_code ec;
+    auto ep = socket_.remote_endpoint(ec);
+    if (!ec) peerAddress_ = ep.address().to_string() + ":" + std::to_string(ep.port());
+}
 
 void AmqpConnection::start() {
     readProtocolHeader();
@@ -253,8 +262,8 @@ void AmqpConnection::handleStartOk(Buffer& buf) {
     auto response = buf.readLongString();
     /*auto locale =*/ buf.readShortString();
 
+    std::string user, pass;
     if (mechanism == "PLAIN") {
-        std::string user, pass;
         size_t i = 0;
         if (i < response.size() && response[i] == '\0') i++;
         while (i < response.size() && response[i] != '\0')
@@ -262,12 +271,13 @@ void AmqpConnection::handleStartOk(Buffer& buf) {
         if (i < response.size()) i++;
         while (i < response.size())
             pass += response[i++];
-        authUser_ = user;
     } else if (mechanism == "AMQPLAIN") {
         Buffer respBuf(reinterpret_cast<const uint8_t*>(response.data()), response.size());
         auto fields = respBuf.readFieldTable();
         if (auto it = fields.find("LOGIN"); it != fields.end())
-            authUser_ = it->second.string_val;
+            user = it->second.string_val;
+        if (auto it = fields.find("PASSWORD"); it != fields.end())
+            pass = it->second.string_val;
     } else {
         sendConnectionClose(reply_code::ACCESS_REFUSED,
             "Unsupported mechanism: " + mechanism,
@@ -275,6 +285,15 @@ void AmqpConnection::handleStartOk(Buffer& buf) {
         return;
     }
 
+    if (userStore_ && !userStore_->verify(user, pass)) {
+        std::cerr << std::format("[conn-{}] Auth failed for user '{}'\n", id_, user);
+        sendConnectionClose(reply_code::ACCESS_REFUSED,
+            "ACCESS_REFUSED - Login was refused using authentication mechanism " + mechanism,
+            class_id::CONNECTION, connection_method::START_OK);
+        return;
+    }
+
+    authUser_ = user;
     state_ = State::AWAITING_TUNE_OK;
     sendConnectionTune();
 }

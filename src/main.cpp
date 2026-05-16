@@ -1,4 +1,6 @@
 #include "broker/server.h"
+#include "broker/stats_writer.h"
+#include <cstdlib>
 #include <iostream>
 #include <thread>
 #include <vector>
@@ -15,8 +17,19 @@ int main(int argc, char* argv[]) {
     std::string dataDir = "./data";
     if (argc > 2) dataDir = argv[2];
 
-    broko::broker::AmqpServer server(ioContext, port, dataDir);
+    // Users file: 3rd CLI arg > env BROKO_USERS_FILE > default <dataDir>/broker.users.
+    // If file missing, broker falls back to "guest:guest only" permissive mode.
+    std::string usersFile;
+    if (argc > 3) usersFile = argv[3];
+    else if (const char* env = std::getenv("BROKO_USERS_FILE")) usersFile = env;
+    else usersFile = dataDir + "/broker.users";
+
+    broko::broker::AmqpServer server(ioContext, port, dataDir, usersFile);
     server.start();
+
+    // Stats writer for Web UI: every 1.5s dump snapshot to <dataDir>/stats.json
+    broko::broker::StatsWriter statsWriter(ioContext, server, dataDir + "/stats.json");
+    statsWriter.start();
 
     boost::asio::signal_set signals(ioContext, SIGINT, SIGTERM);
     signals.async_wait([&](const boost::system::error_code&, int) {

@@ -387,6 +387,51 @@ public:
             data.bindings.size(), data.messages.size());
     }
 
+    // --- Snapshots for management API / Web UI ---
+
+    struct QueueSnapshot {
+        std::string name;
+        bool durable;
+        bool exclusive;
+        bool auto_delete;
+        uint32_t message_count;
+        uint32_t consumer_count;
+    };
+
+    struct ExchangeSnapshot {
+        std::string name;
+        std::string type;
+        bool durable;
+        bool auto_delete;
+        size_t binding_count;
+    };
+
+    std::vector<QueueSnapshot> snapshotQueues() {
+        std::lock_guard lock(mu_);
+        std::vector<QueueSnapshot> out;
+        out.reserve(queues_.size());
+        for (auto& [n, q] : queues_) {
+            out.push_back({
+                n, q->durable, q->exclusive, q->auto_delete,
+                q->messageCount(), q->consumerCount(),
+            });
+        }
+        return out;
+    }
+
+    std::vector<ExchangeSnapshot> snapshotExchanges() {
+        std::lock_guard lock(mu_);
+        std::vector<ExchangeSnapshot> out;
+        out.reserve(exchanges_.size());
+        for (auto& [n, ex] : exchanges_) {
+            out.push_back({
+                n, ex->type, ex->durable, ex->auto_delete,
+                ex->getBindings().size(),
+            });
+        }
+        return out;
+    }
+
     void setupDeadLetterHandler(MessageQueuePtr& q) {
         q->setDeadLetterHandler([this](const std::string& exchange,
                                         const std::string& routingKey,

@@ -8,7 +8,8 @@ namespace broko::broker {
 using boost::asio::ip::tcp;
 
 AmqpServer::AmqpServer(boost::asio::io_context& ioContext, uint16_t port,
-                       const std::string& dataDir)
+                       const std::string& dataDir,
+                       const std::string& usersFile)
     : ioContext_(ioContext),
       acceptor_(ioContext, tcp::endpoint(tcp::v4(), port)),
       tickTimer_(ioContext),
@@ -22,6 +23,10 @@ AmqpServer::AmqpServer(boost::asio::io_context& ioContext, uint16_t port,
     }
     defaultVhost_ = std::make_shared<VirtualHost>("/", store);
     defaultVhost_->recoverFromStore();
+
+    if (!usersFile.empty()) {
+        userStore_.loadFromFile(usersFile);
+    }
 }
 
 void AmqpServer::start() {
@@ -55,7 +60,8 @@ void AmqpServer::accept() {
         uint32_t connId = nextConnectionId_++;
         auto conn = std::make_shared<AmqpConnection>(
             std::move(socket), defaultVhost_, connId,
-            [this](uint32_t id) { removeConnection(id); });
+            [this](uint32_t id) { removeConnection(id); },
+            &userStore_);
 
         {
             std::lock_guard lock(connectionsMu_);
@@ -72,6 +78,22 @@ void AmqpServer::accept() {
 void AmqpServer::removeConnection(uint32_t id) {
     std::lock_guard lock(connectionsMu_);
     connections_.erase(id);
+}
+
+std::vector<AmqpServer::ConnectionInfo> AmqpServer::snapshotConnections() {
+    std::vector<ConnectionInfo> out;
+    std::lock_guard lock(connectionsMu_);
+    out.reserve(connections_.size());
+    for (auto& [id, conn] : connections_) {
+        out.push_back({
+            id,
+            conn->authUser(),
+            conn->peerAddress(),
+            conn->connectedAtMs(),
+            conn->channelCount(),
+        });
+    }
+    return out;
 }
 
 void AmqpServer::scheduleTick() {

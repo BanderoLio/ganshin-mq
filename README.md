@@ -1,13 +1,27 @@
 # Broko — AMQP 0-9-1 Message Broker
 
-Брокер сообщений, написанный на C++ с полной поддержкой протокола AMQP 0-9-1. Совместим с клиентской библиотекой `amqplib` для Node.js и другими AMQP-клиентами.
+Брокер сообщений, написанный на C++ с полной поддержкой протокола AMQP 0-9-1. Совместим с клиентской библиотекой `amqplib` для Node.js и другими AMQP-клиентами. **Этапы 1–4 готовы к сдаче.**
 
-## Документация и цели (этап 1: проектирование)
+## TL;DR — запуск демо
+
+```bash
+make demo                              # поднять брокер + 7 микросервисов + Web UI
+open http://localhost:15672            # Web UI (admin / admin)
+make demo-logs                         # логи реал-тайм
+make demo-down                         # остановить и убрать volumes
+```
+
+Сценарий показа — в [DEMO.md](DEMO.md).
+
+## Документация
 
 | Документ | Содержание |
 |----------|------------|
-| [MessageBrokerRequirements.md](MessageBrokerRequirements.md) | Цели курса, обязательные требования, этапы сдачи (в т.ч. **этап 1** — полный набор проектной документации). |
-| [docs/ARCHITECTURE_AND_DESIGN.md](docs/ARCHITECTURE_AND_DESIGN.md) | Архитектура (слои монолита), **структура данных** (сообщения, метаданные, exchanges/queues, WAL), **обоснование стека**, **план реализации** модулей, чек-лист этапа 1. |
+| [MessageBrokerRequirements.md](MessageBrokerRequirements.md) | Цели курса, обязательные требования, этапы сдачи. |
+| [DEMO.md](DEMO.md) | Пошаговый сценарий финальной демонстрации (этап 4). |
+| [FINAL_REPORT.md](FINAL_REPORT.md) | Отчет по системе оценивания: критерии → файлы → как реализовано. |
+| [docs/ARCHITECTURE_AND_DESIGN.md](docs/ARCHITECTURE_AND_DESIGN.md) | Архитектура, структура данных, обоснование стека, план реализации (этап 1). |
+| [sdk/broko-client-js/README.md](sdk/broko-client-js/README.md) | Самописный AMQP-клиент на Node.js (требование этапа 3). |
 
 **Цель проекта** (сводка): асинхронный обмен сообщениями между сервисами через AMQP, с очередями и персистентностью; **обязательная** совместимость с клиентом **amqplib** на Node.js. Подробные требования — в `MessageBrokerRequirements.md`.
 
@@ -16,16 +30,17 @@
 ```mermaid
 graph TB
     subgraph Клиенты
-        P1[Publisher]
-        P2[Publisher]
+        P1[Publisher / amqplib]
+        P2[Publisher / broko-client SDK]
         S1[Subscriber]
-        S2[Subscriber]
+        R1[RPC client / SDK]
+        B[Browser]
     end
 
-    subgraph "Broko Broker"
+    subgraph "Broko Broker (C++)"
         NET["TCP / Boost.Asio<br/>(многопоточный io_context)"]
-        CONN["Connection Manager<br/>(AMQP handshake, heartbeat,<br/>SASL аутентификация)"]
-        CH["Channel Multiplexer<br/>(до 2047 каналов на соединение)"]
+        CONN["Connection Manager<br/>(handshake, heartbeat,<br/>SASL + UserStore ACL)"]
+        CH["Channel Multiplexer<br/>(до 2047 каналов)"]
 
         subgraph "AMQ Model"
             EX["Exchanges<br/>(direct, fanout, topic, headers)"]
@@ -33,18 +48,28 @@ graph TB
             BIND["Bindings<br/>(routing key + arguments)"]
         end
 
-        WAL["WAL Persistence<br/>(файловая система)"]
+        WAL["WAL Persistence<br/>(broko.wal)"]
+        STATS["StatsWriter<br/>(stats.json каждые 1.5с)"]
+    end
+
+    subgraph "Web UI sidecar (Node.js)"
+        EX_API["Express + /api/*<br/>+ Basic Auth"]
+        UI["Dashboard<br/>(HTML / JS)"]
     end
 
     P1 & P2 -->|AMQP 0-9-1| NET
-    S1 & S2 -->|AMQP 0-9-1| NET
+    S1 & R1 -->|AMQP 0-9-1| NET
     NET --> CONN --> CH
     CH --> EX
     EX -->|route| BIND
     BIND --> Q
     Q -->|deliver| CH
-    Q -.->|durable messages| WAL
-    EX -.->|durable exchanges| WAL
+    Q -.->|durable| WAL
+    EX -.->|durable| WAL
+    Q & EX & CONN -.->|snapshot| STATS
+    STATS -.->|stats.json| EX_API
+    EX_API --> UI
+    B -->|HTTPS 15672| EX_API
 ```
 
 ## Технологический стек
@@ -109,6 +134,9 @@ graph TB
 - [x] **QoS / Prefetch** — `basic.qos` (prefetch-count, prefetch-size)
 - [x] **Exclusive queues** — очереди, привязанные к соединению
 - [x] **Auto-delete queues** — автоматическое удаление при отключении последнего потребителя
+- [x] **Аутентификация** — валидация SASL PLAIN/AMQPLAIN credentials против `broker.users` (отказ → `403 ACCESS_REFUSED`)
+- [x] **Web UI (sidecar)** — HTTP-панель на порту 15672 с realtime-метриками (читает `stats.json` от брокера)
+- [x] **Самописный SDK** — `sdk/broko-client-js/` (минимальный Node.js клиент без зависимости от `amqplib`)
 
 ## Структура проекта
 
@@ -117,35 +145,42 @@ Broko/
 ├── docs/
 │   └── ARCHITECTURE_AND_DESIGN.md  # Этап 1: архитектура, данные, стек, план
 ├── src/
-│   ├── main.cpp                    # Точка входа, настройка io_context
-│   ├── amqp/
-│   │   ├── types.h                 # FieldTable, FieldValue, Buffer (big-endian I/O)
-│   │   ├── frame.h                 # Типы фреймов, константы протокола
-│   │   ├── methods.h               # ID классов и методов AMQP
-│   │   └── content.h               # BasicProperties (14 полей content header)
+│   ├── main.cpp                    # Точка входа: io_context + AmqpServer + StatsWriter
+│   ├── amqp/                       # Wire-протокол AMQP 0-9-1
+│   │   ├── types.h, frame.h, methods.h, content.h
 │   ├── broker/
-│   │   ├── server.h/cpp            # TCP acceptor, tick-таймер
+│   │   ├── server.h/cpp            # TCP acceptor, snapshot соединений
 │   │   ├── connection.h/cpp        # AMQP state machine, heartbeat, framing
-│   │   ├── channel.h/cpp            # Обработка методов Exchange/Queue/Basic/Confirm/Tx
-│   │   ├── vhost.h                 # Virtual Host — контейнер exchanges/queues
+│   │   ├── channel.h/cpp           # Обработка методов Exchange/Queue/Basic/Confirm/Tx
+│   │   ├── vhost.h                 # Virtual Host + snapshot для UI
 │   │   ├── exchange.h              # Direct, Fanout, Topic, Headers exchanges
 │   │   ├── queue.h                 # MessageQueue с TTL, DLX, priorities
-│   │   ├── consumer.h              # Структура Consumer
-│   │   └── message.h               # Структура Message
+│   │   ├── consumer.h, message.h
+│   │   ├── auth.h                  # UserStore (users-файл, валидация SASL)
+│   │   └── stats_writer.h          # Дамп stats.json для Web UI
 │   └── storage/
-│       └── message_store.h         # WAL-персистентность (бинарный формат)
-├── test/
-│   ├── test_connect.js             # Базовый тест подключения
-│   ├── test_full.js                # 7 интеграционных тестов
-│   ├── test_advanced.js            # 7 тестов (TTL, DLX, приоритеты, confirms)
-│   ├── test_persistence.js         # Тест персистентности (перезапуск брокера)
-│   ├── publisher.js                # Демо publisher
-│   └── subscriber.js               # Демо subscriber
+│       └── message_store.h         # WAL-персистентность
+├── sdk/
+│   └── broko-client-js/            # Самописный AMQP-клиент (этап 3, обязательно)
+│       ├── lib/                    # connection, channel, frame, types, methods
+│       ├── examples/smoke.js       # Smoke-тест
+│       └── README.md
+├── test/                           # Интеграционные тесты на amqplib
+│   ├── test_full.js, test_advanced.js, test_persistence.js, test_connect.js
 ├── docker/
-│   ├── Dockerfile                  # Multi-stage сборка брокера
-│   ├── docker-compose.yml          # Брокер + демо-микросервисы
-│   └── demo/                       # Node.js демо-сервисы
+│   ├── Dockerfile                  # Multi-stage брокер (Ubuntu + C++23 + Boost)
+│   ├── docker-compose.yml          # broker + 7 демо-сервисов + webui
+│   ├── demo/                       # Node.js демо-микросервисы
+│   │   ├── publisher/, subscriber/, rpc-server/      # на amqplib
+│   │   ├── publisher-sdk/, subscriber-sdk/, rpc-client/  # на самописном SDK
+│   └── webui/                      # Web UI sidecar (Node.js + Express)
+│       ├── server.js, Dockerfile, package.json
+│       └── public/index.html, style.css, app.js
+├── scripts/
+│   └── run-demo.sh                 # One-command demo runner
+├── Makefile                        # build / test / demo / clean
 ├── CMakeLists.txt
+├── DEMO.md                         # Сценарий финальной демонстрации (этап 4)
 ├── MessageBrokerRequirements.md    # ТЗ курса и этапы
 └── README.md
 ```
@@ -178,17 +213,31 @@ cmake --build build
 
 Брокер слушает на `0.0.0.0:5672` и готов принимать AMQP-подключения.
 
-### Docker
+### Docker (рекомендуемый способ запуска демо)
 
 ```bash
-cd docker
-
-# Собрать и запустить только брокер
-docker compose up broko
-
-# Запустить брокер + демо-микросервисы (publisher, 2 subscribers, RPC server)
-docker compose up
+make demo           # docker compose up: брокер + 7 микросервисов + Web UI
+make demo-logs      # tail логов всех сервисов
+make demo-down      # docker compose down -v
 ```
+
+После запуска:
+- AMQP-брокер: `localhost:5672` (guest/guest)
+- Web UI: <http://localhost:15672> (admin/admin)
+
+Состав compose:
+
+| Сервис | Что делает | Клиент |
+|--------|-----------|--------|
+| `broko` | Брокер | — |
+| `publisher` | Заказы каждые 2с в `demo.orders` | amqplib |
+| `subscriber-all` | Получает `order.#` | amqplib |
+| `subscriber-high` | Получает только `order.high` | amqplib |
+| `rpc-server` | Calculator RPC | amqplib |
+| `rpc-client` | RPC-вызовы каждые 3с | **broko-client (свой SDK)** |
+| `publisher-sdk` | Дублёр publisher на своём SDK | **broko-client** |
+| `subscriber-sdk` | Дублёр subscriber на своём SDK | **broko-client** |
+| `webui` | HTTP management UI на :15672 | — |
 
 ## Тестирование
 
@@ -271,7 +320,43 @@ Broko реализует подмножество AMQP 0-9-1, достаточн
 ### Ограничения
 
 - Один virtual host (`/`)
-- Аутентификация принимает любые credentials (нет ACL)
 - Tx-транзакции не атомарны (stub — select/commit/rollback принимаются, но не откатывают)
 - Нет кластеризации и репликации
-- Нет Management API / Web UI
+- Аутентификация: пароли в plaintext в `broker.users` (для production стоит добавить хеширование)
+- Web UI и `/api/*` не имеют write-операций (read-only, через snapshot-файл `stats.json`)
+
+## Аутентификация
+
+Файл `broker.users` (по умолчанию `<data_dir>/broker.users`, переопределяется переменной окружения `BROKO_USERS_FILE` или 3-м CLI-аргументом):
+
+```
+# user:password — по одной паре на строку
+guest:guest
+admin:secret123
+```
+
+Если файл отсутствует — брокер работает в «permissive» режиме: принимает только `guest:guest`. Это сохраняет совместимость с дефолтами `amqplib` для тестов и быстрого старта.
+
+## Web UI
+
+Отдельный sidecar-контейнер `docker/webui/`:
+- Express + статика, без AMQP-зависимостей
+- Защищён HTTP Basic Auth (по умолчанию `admin` / `admin`, настраивается через `WEBUI_USER` / `WEBUI_PASS`)
+- Эндпоинты `/api/overview`, `/api/queues`, `/api/exchanges`, `/api/connections`, `/api/stats`
+- Frontend: vanilla JS, без сборщика, авто-обновление каждые 2с
+- Источник данных: `stats.json`, который брокер пишет атомарно (`write + rename`) каждые 1.5с
+
+## Самописный SDK
+
+Минимальный Node.js клиент в [sdk/broko-client-js/](sdk/broko-client-js/), реализующий AMQP 0-9-1 wire-протокол с нуля поверх `net.Socket`. **Не зависит от `amqplib`.**
+
+Используется в демо-сервисах `rpc-client`, `publisher-sdk`, `subscriber-sdk` параллельно с amqplib-версиями — это подтверждает совместимость брокера с обоими клиентами.
+
+```js
+const broko = require('broko-client');
+const conn = await broko.connect('amqp://guest:guest@localhost:5672/');
+const ch = await conn.createChannel();
+await ch.assertQueue('hello');
+ch.sendToQueue('hello', Buffer.from('hi'));
+await ch.consume('hello', m => { console.log(m.content.toString()); ch.ack(m); });
+```

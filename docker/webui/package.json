@@ -1,0 +1,10 @@
+{
+    "name": "broko-webui",
+    "private": true,
+    "version": "0.1.0",
+    "main": "server.js",
+    "dependencies": {
+        "express": "^4.19.2",
+        "basic-auth": "^2.0.1"
+    }
+}
